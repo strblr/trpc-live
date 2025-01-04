@@ -109,6 +109,22 @@ export function Post({ id }: { id: string }) {
 
 When you or someone else viewing the same post clicks the "Like" button, the post will update for everyone.
 
+## Invalidation
+
+The `invalidate` method can be called from anywhere. It will re-run all live queries registered for the given key. In the previous example, we call it in the mutation resolver after updating the data. Here is an example of calling it from a Mongoose hook:
+
+```typescript
+postSchema.post("save", async function (post) {
+  liveStore.invalidate(`thread:${post.threadId}`);
+});
+```
+
+You can pass multiple keys to `invalidate`:
+
+```typescript
+liveStore.invalidate(["post:1", "post:2"]); // Invalidate post 1 and 2
+```
+
 ## Error handling
 
 Errors are handled just like regular tRPC errors.
@@ -177,12 +193,6 @@ liveStore.live({
 
 liveStore.invalidate("post"); // Invalidate all posts
 liveStore.invalidate("post:1"); // Invalidate post 1
-```
-
-Also, you can pass multiple keys to `invalidate`:
-
-```typescript
-liveStore.invalidate(["post:1", "post:2"]); // Invalidate post 1 and 2
 ```
 
 ## Count subscribers
