@@ -21,7 +21,7 @@ bun add trpc-live
 
 ## Usage
 
-### Server Setup
+### Server setup
 
 Start by creating a single live store. Then create tRPC subscription resolvers with the store's `live` method:
 
@@ -68,7 +68,7 @@ export const appRouter = router({
 
 In this example, when a post is liked, all subscribers to that post will receive an update.
 
-### Client Setup
+### Client setup
 
 On the client, live queries are just regular tRPC subscriptions.
 
@@ -153,7 +153,7 @@ if (post.error) {
 }
 ```
 
-## Key Helper
+## Key helper
 
 `trpc-live` provides a `key` helper function to generate stable string keys from arguments. You are not required to use it but it can be useful for live query keys that depend on multiple arguments.
 
@@ -179,7 +179,7 @@ liveStore.live({
 liveStore.invalidate(key("post", { id: "1", version: "1" }));
 ```
 
-## Multiple Keys
+## Multiple keys
 
 A live query can register multiple keys. This is useful if you want to be able to invalidate the query in different ways. For example, you might want to invalidate a post by its id, or all posts regardless of id.
 
@@ -204,7 +204,7 @@ liveStore.count("post");
 liveStore.count(["post:1", "post:2"]);
 ```
 
-## API Reference
+## API reference
 
 ### `InMemoryLiveStore`
 
