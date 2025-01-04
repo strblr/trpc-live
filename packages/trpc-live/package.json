@@ -1,6 +1,15 @@
 {
   "name": "trpc-live",
-  "version": "1.1.0",
+  "version": "1.1.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/strblr/trpc-live.git"
+  },
+  "homepage": "https://github.com/strblr/trpc-live",
+  "bugs": {
+    "url": "https://github.com/strblr/trpc-live/issues"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
