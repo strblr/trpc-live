@@ -1,0 +1,23 @@
+{
+  "name": "trpc-live-demo-server",
+  "private": true,
+  "scripts": {
+    "dev": "bun run index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@trpc/server": "next",
+    "cors": "^2.8.5",
+    "trpc-bun-adapter": "^1.2.2",
+    "trpc-live": "workspace:*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

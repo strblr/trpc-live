@@ -1,0 +1,25 @@
+{
+  "name": "trpc-live",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@trpc/server": "next"
+  },
+  "dependencies": {
+    "fast-json-stable-stringify": "^2.1.0"
+  }
+}

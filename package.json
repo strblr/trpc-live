@@ -1,0 +1,7 @@
+{
+  "name": "trpc-live",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ]
+}
