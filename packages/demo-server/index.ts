@@ -17,6 +17,4 @@ const server = Bun.serve(
   )
 );
 
-console.info(
-  `✅ demo-live tRpc server listening on http://localhost:${server.port}`
-);
+console.info(`✅ tRPC server listening on http://localhost:${server.port}`);

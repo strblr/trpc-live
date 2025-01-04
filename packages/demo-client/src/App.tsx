@@ -7,6 +7,11 @@ export function App() {
 
   return (
     <>
+      {greeting.error && (
+        <div>
+          <p>Error: {greeting.error.message}</p>
+        </div>
+      )}
       <div>
         {greeting.data?.id} - {greeting.data?.name} - {greeting.data?.counter}
       </div>

@@ -101,10 +101,7 @@ export class InMemoryLiveStore {
         triggerExit();
       }
 
-      if (opts.signal) {
-        opts.signal.addEventListener("abort", abort);
-      }
-
+      opts.signal?.addEventListener("abort", abort);
       store.subscribe(keys, invalidate);
 
       try {
@@ -116,9 +113,7 @@ export class InMemoryLiveStore {
         }
       } finally {
         store.unsubscribe(keys, invalidate);
-        if (opts.signal) {
-          opts.signal.removeEventListener("abort", abort);
-        }
+        opts.signal?.removeEventListener("abort", abort);
       }
     };
   }

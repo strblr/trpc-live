@@ -2,11 +2,12 @@
 
 A simple live query solution for [tRPC](https://trpc.io/) applications. Real-time client updates and server-side invalidation with minimal setup. Implemented on top of tRPC subscriptions.
 
-## Features
+## Concepts
 
-- **Live Queries**: Live query capabilities to your tRPC router.
-- **In-Memory Live Store**: Manages live query subscribers and invalidations. Other stores can be implemented in the future (Redis, etc.).
-- **TypeScript Support**: Fully typed.
+- **Live query**: A live query is a query that is re-run when the data it depends on changes.
+- **Live store**: Manages live query subscribers and invalidations on the server. The current implementation is in-memory. Other stores can be implemented in the future (Redis, etc.).
+
+Live queries put the burden on the server to refresh client queries when data changes. This avoids patterns like polling or combining a regular query with a "change" subscription. In practice, `trpc-live` implements live queries on top of tRPC subscriptions. Clients fire a subscription and get an initial result, essentially acting as a regular query. In the background, the server registers the subscription in a store using keys. These keys identify the data that was subscribed to. When the data changes, the server can trigger a targeted re-run by using the keys. The subscription resolver is then re-run and the clients receive the updated result.
 
 ## Installation
 
@@ -22,7 +23,7 @@ bun add trpc-live
 
 ### Server Setup
 
-To create live queries, create a single live store. Then create tRPC subscription resolvers with the store's `live` method:
+Start by creating a single live store. Then create tRPC subscription resolvers with the store's `live` method:
 
 ```typescript
 import { router, publicProcedure } from "./trpc";
@@ -90,8 +91,6 @@ Refer to the official [tRPC docs](https://trpc.io/) for more information.
 For React, simply use the `useSubscription` hook:
 
 ```typescript
-import { trpc } from "./trpc";
-
 export function Post({ id }: { id: string }) {
   const post = trpc.getPost.useSubscription({ id });
   const like = trpc.likePost.useMutation();
@@ -109,6 +108,34 @@ export function Post({ id }: { id: string }) {
 ```
 
 When you or someone else viewing the same post clicks the "Like" button, the post will update for everyone.
+
+## Error handling
+
+Errors are handled just like regular tRPC errors.
+
+```typescript
+liveStore.live({
+  key: ({ input }) => `post:${input.id}`,
+  resolver: async ({ input }) => {
+    const post = await fetchPostFromDatabase(input.id);
+    if (!post) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Post not found"
+      });
+    }
+    return post;
+  }
+});
+```
+
+```typescript
+const post = trpc.getPost.useSubscription({ id: "1" });
+
+if (post.error) {
+  return <div>Error: {post.error.message}</div>;
+}
+```
 
 ## Key Helper
 
