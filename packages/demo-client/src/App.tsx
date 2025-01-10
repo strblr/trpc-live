@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { patch } from "@n1ru4l/json-patch-plus";
 import { cloneDeep } from "lodash-es";
-import { inferAsyncIterableYield, RouterOutputs, trpc } from "./trpc";
+import { trpc } from "./trpc";
 
 export function App() {
   const [id, setId] = useState(1);
 
-  const [data, setData] = useState<inferAsyncIterableYield<
-    RouterOutputs["users"]["getUser"]
-  > | null>(null);
+  const [data, setData] = useState<{
+    id: string;
+    name: string;
+    counter: number;
+  } | null>(null);
 
   const greeting = trpc.users.getUser.useSubscription(
     { id: id.toString() },

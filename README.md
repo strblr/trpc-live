@@ -26,8 +26,8 @@ bun add trpc-live
 Start by creating a single live store. Then create tRPC subscription resolvers with the store's `live` method:
 
 ```typescript
-import { router, publicProcedure } from "./trpc";
 import { InMemoryLiveStore } from "trpc-live";
+import { router, publicProcedure } from "./trpc";
 
 const liveStore = new InMemoryLiveStore();
 
@@ -204,6 +204,92 @@ liveStore.count("post");
 liveStore.count(["post:1", "post:2"]);
 ```
 
+## JSON diff
+
+Although not built into the library for the sake of simplicity, you can send JSON diffs as updates instead of full payloads. You save on bandwidth if the diffs are smaller than the data but you lose in simplicity and potentially backend performance. With diffs, the backend must keep track of all of the clients' previous states and calculate deltas for every update and every client. Another drawback is that your subscription's output will be typed as a JSON delta. Here is how it could look like on the backend using [@n1ru4l/json-patch-plus](https://github.com/n1ru4l/graphql-live-query/tree/main/packages/json-patch-plus):
+
+```typescript
+import { InMemoryLiveStore } from "trpc-live";
+import { diff } from "@n1ru4l/json-patch-plus";
+import { router, publicProcedure } from "./trpc";
+
+const liveStore = new InMemoryLiveStore();
+
+// Higher-order async generator to add diff logic
+function jsonDiff<TOpts>(fn: (opts: TOpts) => AsyncGenerator) {
+  return async function* (opts: TOpts) {
+    let previous: unknown = null;
+    for await (const item of fn(opts)) {
+      const delta = diff({ left: previous, right: item });
+      yield delta;
+      previous = item;
+    }
+  };
+}
+
+export const appRouter = router({
+  getPost: publicProcedure
+    .input(
+      z.object({
+        id: z.string()
+      })
+    )
+    .subscription(
+      // Wrap liveStore.live
+      jsonDiff(
+        liveStore.live({
+          key: ({ input }) => `post:${input.id}`,
+          resolver: async ({ input }) => {
+            const post = await fetchPostFromDatabase(input.id);
+            return {
+              id: input.id,
+              content: post.content,
+              likes: post.likes
+            };
+          }
+        })
+      )
+    )
+});
+```
+
+On the client, you can do something along these lines:
+
+```typescript
+import { patch } from "@n1ru4l/json-patch-plus";
+import { cloneDeep } from "lodash-es";
+
+export function Post({ id }: { id: string }) {
+  const [data, setData] = useState<{
+    id: string;
+    content: string;
+    likes: number;
+  } | null>(null);
+
+  trpc.getPost.useSubscription(
+    { id },
+    {
+      onStarted() {
+        setData(null);
+      },
+      onData(delta) {
+        // patch mutates the value, so either clone it, use a different diff/patch library, or use refs
+        setData(previous => patch({ left: cloneDeep(previous), delta }));
+      }
+    }
+  );
+
+  if (!data) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <p>{data.content}</p>
+      <p>Likes: {data.likes}</p>
+    </div>
+  );
+}
+```
+
 ## API reference
 
 ### `InMemoryLiveStore`
@@ -220,13 +306,13 @@ Manages subscriptions and invalidations for live data.
 
   Returns the number of active subscribers for a given set of keys.
 
-- `live(options: LiveOptions): SubscriptionResolver`
+- `live(options: LiveOptions): AsyncGeneratorFunction`
 
   Creates a "live query" subscription resolver.
 
-  - `LiveOptions<...>` interface
-    - `key: string | string[] | ((opts: ProcedureResolverOptions<...>) => string | string[])`
-    - `resolver: (opts: ProcedureResolverOptions<...>) => TOutput | Promise<TOutput>`
+  - `LiveOptions` interface
+    - `key: string | string[] | ((opts: ProcedureResolverOptions) => string | string[])`
+    - `resolver: (opts: ProcedureResolverOptions) => T | Promise<T>`
 
 ### `key(...args: any[]): string`
 
