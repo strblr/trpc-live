@@ -1,9 +1,28 @@
 import { useState } from "react";
-import { trpc } from "./trpc";
+import { patch } from "@n1ru4l/json-patch-plus";
+import { cloneDeep } from "lodash-es";
+import { inferAsyncIterableYield, RouterOutputs, trpc } from "./trpc";
 
 export function App() {
   const [id, setId] = useState(1);
-  const greeting = trpc.users.getUser.useSubscription({ id: id.toString() });
+
+  const [data, setData] = useState<inferAsyncIterableYield<
+    RouterOutputs["users"]["getUser"]
+  > | null>(null);
+
+  const greeting = trpc.users.getUser.useSubscription(
+    { id: id.toString() },
+    {
+      onStarted() {
+        setData(null);
+      },
+      onData(delta) {
+        setData(previous => {
+          return patch({ left: cloneDeep(previous), delta });
+        });
+      }
+    }
+  );
 
   return (
     <>
@@ -13,7 +32,7 @@ export function App() {
         </div>
       )}
       <div>
-        {greeting.data?.id} - {greeting.data?.name} - {greeting.data?.counter}
+        {data?.id} - {data?.name} - {data?.counter}
       </div>
       <button onClick={() => setId(id + 1)}>Increment</button>
     </>

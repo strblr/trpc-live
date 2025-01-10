@@ -1,9 +1,21 @@
 import z from "zod";
 import { publicProcedure, router } from "./trpc";
 import { InMemoryLiveStore, key } from "trpc-live";
+import { diff } from "@n1ru4l/json-patch-plus";
 
 let counter = 0;
 const liveStore = new InMemoryLiveStore();
+
+function jsonDiff<TOpts>(fn: (opts: TOpts) => AsyncGenerator) {
+  return async function* (opts: TOpts) {
+    let previous: unknown = null;
+    for await (const item of fn(opts)) {
+      const delta = diff({ left: previous, right: item });
+      yield delta;
+      previous = item;
+    }
+  };
+}
 
 export const appRouter = router({
   users: {
@@ -14,19 +26,18 @@ export const appRouter = router({
         })
       )
       .subscription(
-        liveStore.live({
-          key: ({ input }) => [
-            key("getUser"),
-            key("getUser", { id: input.id })
-          ],
-          resolver: async ({ input }) => {
-            return {
-              id: input.id,
-              name: "John Doe",
-              counter
-            };
-          }
-        })
+        jsonDiff(
+          liveStore.live({
+            key: () => [key("getUser")],
+            resolver: async ({ input }) => {
+              return {
+                id: input.id,
+                name: "John Doe",
+                counter
+              };
+            }
+          })
+        )
       )
   }
 });

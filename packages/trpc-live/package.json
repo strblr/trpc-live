@@ -25,9 +25,6 @@
   "devDependencies": {
     "typescript": "^5.7.2"
   },
-  "peerDependencies": {
-    "@trpc/server": "next"
-  },
   "dependencies": {
     "fast-json-stable-stringify": "^2.1.0"
   }

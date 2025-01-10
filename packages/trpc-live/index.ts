@@ -1,35 +1,14 @@
 import stringify from "fast-json-stable-stringify";
-import type {
-  MaybePromise,
-  ProcedureResolverOptions
-} from "@trpc/server/unstable-core-do-not-import";
 
-export interface LiveOptions<
-  TContext,
-  TMeta,
-  TContextOverrides,
-  TInputOut,
-  TOutput
-> {
-  key:
-    | string
-    | string[]
-    | ((
-        opts: ProcedureResolverOptions<
-          TContext,
-          TMeta,
-          TContextOverrides,
-          TInputOut
-        >
-      ) => string | string[]);
-  resolver: (
-    opts: ProcedureResolverOptions<
-      TContext,
-      TMeta,
-      TContextOverrides,
-      TInputOut
-    >
-  ) => MaybePromise<TOutput>;
+type MaybePromise<T> = Promise<T> | T;
+
+interface ProcedureResolverOptionsLike {
+  signal?: AbortSignal;
+}
+
+export interface LiveOptions<TOpts extends ProcedureResolverOptionsLike, T> {
+  key: string | string[] | ((opts: TOpts) => string | string[]);
+  resolver: (opts: TOpts) => MaybePromise<T>;
 }
 
 export class InMemoryLiveStore {
@@ -67,20 +46,13 @@ export class InMemoryLiveStore {
     }
   }
 
-  live<TContext, TMeta, TContextOverrides, TInputOut, TOutput>({
+  live<TOpts extends ProcedureResolverOptionsLike, T>({
     key,
     resolver
-  }: LiveOptions<TContext, TMeta, TContextOverrides, TInputOut, TOutput>) {
+  }: LiveOptions<TOpts, T>) {
     const store = this;
 
-    return async function* (
-      opts: ProcedureResolverOptions<
-        TContext,
-        TMeta,
-        TContextOverrides,
-        TInputOut
-      >
-    ) {
+    return async function* (opts: TOpts) {
       const keys = castArray(typeof key === "function" ? key(opts) : key);
       let triggerNext = () => {};
       let triggerExit = () => {};

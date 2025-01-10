@@ -1,14 +1,20 @@
 import {
   createTRPCReact,
-  loggerLink,
   splitLink,
   unstable_httpBatchStreamLink,
   unstable_httpSubscriptionLink
 } from "@trpc/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
 import { QueryClient } from "@tanstack/react-query";
 import type { AppRouter } from "../../../packages/demo-server/router";
 
 export const trpc = createTRPCReact<AppRouter>();
+
+export type inferAsyncIterableYield<T> = T extends AsyncIterable<infer U>
+  ? U
+  : never;
+
+export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,7 +26,6 @@ export const queryClient = new QueryClient({
 
 export const trpcClient = trpc.createClient({
   links: [
-    loggerLink(),
     splitLink({
       condition: op => op.type === "subscription",
       true: unstable_httpSubscriptionLink({

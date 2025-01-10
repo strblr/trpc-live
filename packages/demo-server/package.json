@@ -1,12 +1,14 @@
 {
   "name": "trpc-live-demo-server",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "bun run index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@n1ru4l/json-patch-plus": "^0.2.0",
     "@trpc/server": "next",
     "cors": "^2.8.5",
     "trpc-bun-adapter": "^1.2.2",
