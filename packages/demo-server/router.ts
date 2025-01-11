@@ -1,18 +1,18 @@
-import z from "zod";
-import { publicProcedure, router } from "./trpc";
 import { InMemoryLiveStore, key } from "trpc-live";
 import { diff } from "@n1ru4l/json-patch-plus";
+import z from "zod";
+import { publicProcedure, router } from "./trpc";
 
 let counter = 0;
 const liveStore = new InMemoryLiveStore();
 
-function jsonDiff<TOpts>(fn: (opts: TOpts) => AsyncGenerator) {
+function jsonDiff<TOpts, T>(fn: (opts: TOpts) => AsyncGenerator<T>) {
   return async function* (opts: TOpts) {
     let previous: unknown = null;
-    for await (const item of fn(opts)) {
-      const delta = diff({ left: previous, right: item });
-      yield delta;
-      previous = item;
+    for await (const data of fn(opts)) {
+      const delta = diff({ left: previous, right: data });
+      yield delta as T;
+      previous = data;
     }
   };
 }
