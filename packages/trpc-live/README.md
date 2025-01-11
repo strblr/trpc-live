@@ -2,6 +2,19 @@
 
 A simple live query solution for [tRPC](https://trpc.io/) applications. Real-time client updates and server-side invalidation with minimal setup. Implemented on top of tRPC subscriptions.
 
+- [Concepts](#concepts)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Invalidation](#invalidation)
+- [Error handling](#error-handling)
+- [Key helper](#key-helper)
+- [Multiple keys](#multiple-keys)
+- [Count subscribers](#count-subscribers)
+- [JSON diff](#json-diff)
+- [API reference](#api-reference)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Concepts
 
 - **Live query**: A live query is a query that is re-run when the data it depends on changes.
@@ -206,7 +219,7 @@ liveStore.count(["post:1", "post:2"]);
 
 ## JSON diff
 
-Although not built into the library for the sake of simplicity, you can send JSON diffs as updates instead of full payloads. You save on bandwidth if the diffs are smaller than the data but you lose in simplicity and potentially backend performance. With diffs, the backend must keep track of all of the clients' previous states and calculate deltas for every update and every client. Another drawback is that your subscription's output will be typed as a JSON delta. Here is how it could look like on the backend using [@n1ru4l/json-patch-plus](https://github.com/n1ru4l/graphql-live-query/tree/main/packages/json-patch-plus):
+Although not built into the library for the sake of simplicity, with a bit of boilerplate you can send JSON diffs as updates instead of full payloads. You save on bandwidth when the diffs are smaller than the data but you lose in simplicity and potentially backend performance. With diffs, the backend must keep track of all of the clients' previous states and calculate deltas for every update and every client. Here is how it could look like on the backend using [@n1ru4l/json-patch-plus](https://github.com/n1ru4l/graphql-live-query/tree/main/packages/json-patch-plus):
 
 ```typescript
 import { InMemoryLiveStore } from "trpc-live";
@@ -216,13 +229,16 @@ import { router, publicProcedure } from "./trpc";
 const liveStore = new InMemoryLiveStore();
 
 // Higher-order async generator to add diff logic
-function jsonDiff<TOpts>(fn: (opts: TOpts) => AsyncGenerator) {
+function jsonDiff<TOpts, T>(fn: (opts: TOpts) => AsyncGenerator<T>) {
   return async function* (opts: TOpts) {
+    let init = true;
     let previous: unknown = null;
-    for await (const item of fn(opts)) {
-      const delta = diff({ left: previous, right: item });
-      yield delta;
-      previous = item;
+    for await (const data of fn(opts)) {
+      const delta = diff({ left: previous, right: data });
+      // We're lying about the yield type to not mess up tRPC's type inference
+      yield [delta, init] as T;
+      init = false;
+      previous = data;
     }
   };
 }
@@ -253,41 +269,71 @@ export const appRouter = router({
 });
 ```
 
-On the client, you can do something along these lines:
+On the client, you can add a custom link to apply the diffs as they come in:
 
 ```typescript
+import type { AnyTRPCRouter } from "@trpc/server";
+import type { TRPCLink } from "@trpc/client";
+import { observable } from "@trpc/server/observable";
 import { patch } from "@n1ru4l/json-patch-plus";
-import { cloneDeep } from "lodash-es";
+import cloneDeep from "lodash.clonedeep";
 
-export function Post({ id }: { id: string }) {
-  const [data, setData] = useState<{
-    id: string;
-    content: string;
-    likes: number;
-  } | null>(null);
-
-  trpc.getPost.useSubscription(
-    { id },
-    {
-      onStarted() {
-        setData(null);
-      },
-      onData(delta) {
-        // patch mutates the value, so either clone it, use a different diff/patch library, or use refs
-        setData(previous => patch({ left: cloneDeep(previous), delta }));
+function jsonPatchLink<TRouter extends AnyTRPCRouter>(
+  includePaths?: string[]
+): TRPCLink<TRouter> {
+  return () => {
+    return ({ op, next }) => {
+      if (includePaths && !includePaths.includes(op.path)) {
+        // Bypass non-live-query operations
+        return next(op);
       }
-    }
-  );
 
-  if (!data) return <div>Loading...</div>;
+      return observable(observer => {
+        let data: unknown = null;
 
-  return (
-    <div>
-      <p>{data.content}</p>
-      <p>Likes: {data.likes}</p>
-    </div>
-  );
+        return next(op).subscribe({
+          error: observer.error,
+          complete: observer.complete,
+          next(envelope) {
+            const { result } = envelope;
+            if (result.type && result.type !== "data") {
+              // Bypass non-data payloads
+              return observer.next(envelope);
+            } else {
+              const [delta, init] = result.data as any;
+              if (init) data = null;
+              // Apply the diff to the previous data
+              // (patching mutates the data, so clone it first)
+              data = patch({ left: cloneDeep(data), delta });
+              observer.next({ ...envelope, result: { ...result, data } });
+            }
+          }
+        });
+      });
+    };
+  };
 }
+```
+
+Finally, add the link to your tRPC client:
+
+```typescript
+export const trpcClient = trpc.createClient({
+  links: [
+    splitLink({
+      condition: op => op.type === "subscription",
+      true: [
+        jsonPatchLink(), // Here
+        unstable_httpSubscriptionLink({
+          url: "http://localhost:2022"
+        })
+      ],
+      false: unstable_httpBatchStreamLink({
+        url: "http://localhost:2022"
+      })
+    })
+  ]
+});
 ```
 
 ## API reference
