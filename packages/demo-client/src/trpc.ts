@@ -8,7 +8,7 @@ import type { AnyTRPCRouter } from "@trpc/server";
 import type { TRPCLink } from "@trpc/client";
 import { observable } from "@trpc/server/observable";
 import { QueryClient } from "@tanstack/react-query";
-import { Delta, patch } from "@n1ru4l/json-patch-plus";
+import { patch } from "@n1ru4l/json-patch-plus";
 import cloneDeep from "lodash.clonedeep";
 import type { AppRouter } from "../../../packages/demo-server/router";
 
@@ -22,43 +22,33 @@ export const queryClient = new QueryClient({
   }
 });
 
-export function jsonPatchLink<TRouter extends AnyTRPCRouter = AnyTRPCRouter>(
-  livePaths?: string[]
+function jsonPatchLink<TRouter extends AnyTRPCRouter>(
+  includePaths?: string[]
 ): TRPCLink<TRouter> {
   return () => {
     return ({ op, next }) => {
-      if (
-        op.type !== "subscription" ||
-        (livePaths && !livePaths.includes(op.path))
-      ) {
+      if (includePaths && !includePaths.includes(op.path)) {
         return next(op);
       }
 
       return observable(observer => {
         let data: unknown = null;
 
-        const subscription = next(op).subscribe({
+        return next(op).subscribe({
+          error: observer.error,
+          complete: observer.complete,
           next(envelope) {
             const { result } = envelope;
-
             if (result.type && result.type !== "data") {
               return observer.next(envelope);
             } else {
-              data = patch({
-                left: cloneDeep(data),
-                delta: result.data as Delta
-              });
-
+              const [delta, init] = result.data as any;
+              if (init) data = null;
+              data = patch({ left: cloneDeep(data), delta });
               observer.next({ ...envelope, result: { ...result, data } });
             }
-          },
-          error: observer.error,
-          complete: observer.complete
+          }
         });
-
-        return () => {
-          subscription.unsubscribe();
-        };
       });
     };
   };

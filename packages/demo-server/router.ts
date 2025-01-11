@@ -8,10 +8,12 @@ const liveStore = new InMemoryLiveStore();
 
 function jsonDiff<TOpts, T>(fn: (opts: TOpts) => AsyncGenerator<T>) {
   return async function* (opts: TOpts) {
+    let init = true;
     let previous: unknown = null;
     for await (const data of fn(opts)) {
       const delta = diff({ left: previous, right: data });
-      yield delta as T;
+      yield [delta, init] as T;
+      init = false;
       previous = data;
     }
   };
